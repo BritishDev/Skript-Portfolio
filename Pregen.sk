@@ -1,0 +1,134 @@
+
+options:
+	P: &2Pregen &8» #Prefix
+	H: &a #Highlight
+	C: &7 #Normal
+	ChunksPerTick: 4 #How many chunks to load per tick
+	DebugMode: false#Broadcast when a chunk is loaded & where
+	RemoveOtherStones: true #Remove diorite, granite and andesite
+
+command /pregencancel:
+	aliases: /cancelpregen
+	permission: skript.host
+	trigger:
+		if {PregenGoing} is not set:
+			send "{@P}{@C} No pregen is in progress!"
+		else:
+			delete {PregenGoing}
+			delete {midx}
+			delete {midz}
+			broadcast "{@P}{@C} Pregeneration cancelled."
+
+command /pregen [<integer>] [<text=border>] [<integer=8>] [<boolean=false>]:
+	permission: skript.host
+	trigger:
+		set {uhc::world} to world "uhc"
+		if arg-1 is not set:
+			send "{@P}{@C} Correct Usage: {@H}/pregen <radius> [walls|border (default border)] [chunks per tick (4)] [true|false (no 00)]"
+			stop trigger
+		else if arg-2 is not set:
+			send "{@P}{@C} Correct Usage: {@H}/pregen <radius> [walls|border (default border)] [chunks per tick (4)] [true|false (no 00)]"
+			stop trigger
+		if arg-2 is "border":
+			set {_BorderType} to "1.8"
+		else:
+			set {_BorderType} to "bedrock"
+		set {_world} to "uhc"
+		set {_ChunksPerTick} to arg-3
+		set {midx} to 0
+		set {midz} to 0
+		if arg-4 is true:
+			set {midx} to a random integer between -5000 and 10000
+			set {midz} to a random integer between 500 and 10000
+			set {_numbers::*} to 1, 2, 3, 4 and 5
+			loop 4 times:
+				set {_num} to a random element out of {_numbers::*}
+				set {midx::%{_num}%} to a random integer between {midx} - arg-1 and {midx} + arg-1
+				set {midz::%{_num}%} to a random integer between {midz} - arg-1 and {midz} + arg-1
+				delete {_numbers::%{_num}%}
+			set {_num} to a random element out of {_numbers::*}
+			set {midx::%{_num}%} to {midx}
+			set {midz::%{_num}%} to {midz}
+		set {PregenGoing} to true
+		set {_PregenStart} to now
+		set {uhcsk::OreLimiter::m} to true
+		broadcast "{@P}{@C} Pregenning with a {@H}%arg-1%{@C} radius using a {@H}%{_BorderType}% border{@C}."
+		set {_Radius} to arg-1+128
+		loop {_Radius}*2 times:
+			add 1 to {_BlocksLoopedX}
+			if {_BlocksLoopedX} is 16:
+				if {PregenGoing} is not set:
+					stop trigger
+				set {_BlocksLoopedX} to 0
+				if {_Progress} is not "%(((loop-number/16)/100)/({_Radius}/100)*1000)*0.8%":
+					set {_Progress} to "%(((loop-number/16)/100)/({_Radius}/100)*1000)*0.8%"
+					set action bar of all players to "{@P}{@C} &oGenerating Overworld: &r&7~{@H}%{_Progress}%%% &8| {@C}TPS: {@H}%tps% &8| {@C}CPU: {@H}%cpu usage%%% &8| {@C}RAM: {@H}%free memory in mb%MB"
+				set {_Progress} to "%(((loop-number/16)/100)/({_Radius}/100)*1000)*0.8%"
+				loop {_Radius}*2 times:
+					add 1 to {_BlocksLoopedZ}
+					if {PregenGoing} is not set:
+						stop trigger
+					if {_BlocksLoopedZ} is 16:
+						set {_BlocksLoopedZ} to 0
+						set {_XCoord} to ((loop-number-1) - {_Radius}) + {midx}
+						set {_ZCoord} to ((loop-number-2) - {_Radius}) + {midz}
+						set {_ChunkLocation} to location at {_XCoord}, 255, {_ZCoord} of the world {uhc::world}
+						add 1 to {_ChunksLoaded}
+						generate chunk at {_ChunkLocation}
+						if {@DebugMode} is true:
+							broadcast "{@P}{@C} Generating {@H}%chunk at {_ChunkLocation}%{@C}. {@H}%{_ChunksLoaded}%{@C}/{@H}%{_ChunksPerTick}%{@C} until waiting a tick."
+						if {_ChunksLoaded} is {_ChunksPerTick}:
+							wait 1 tick
+							if {@DebugMode} is true:
+								send "{@P}{@C} Waited a tick after generating {@H}%chunk at {_ChunkLocation}%{@C}." to all ops
+							set {_ChunksLoaded} to 0
+							if tps is less than 12:
+								while {tps} is less than 15:
+									set action bar of all players to "{@P}{@C} &oWaiting for TPS: &r&7~{@H}%{_Progress}%%% &8| {@C}TPS: {@H}%tps% &8| {@C}CPU: {@H}%cpu usage%%% &8| {@C}RAM: {@H}%free memory in mb%MB"
+									wait 5 ticks
+		if {_BorderType} is "1.8":
+			set diameter of {uhc::world} to arg-1*2
+			set damage buffer of {uhc::world} to 2
+			set damage buffer of {uhc::world} to 0.05
+			set warning time of {uhc::world} to 60
+			set warning distance of {uhc::world} to 50
+			set center of {uhc::world} to location at {midx}, 0, {midz} of the world {uhc::world}
+		else:
+			command "/setwalls %arg-1% %arg-2% 0 0 bedrock"
+		set {_isnether} to world "uhc_nether"
+		if "%{_isnether}%" is not "<none>":
+			set {_Radius} to (arg-1)/2
+			loop {_Radius}*2 times:
+				add 1 to {_BlocksLoopedX}
+				if {_BlocksLoopedX} is 16:
+					if {PregenGoing} is not set:
+						stop trigger
+					set {_BlocksLoopedX} to 0
+					if {_Progress} is not "%(((loop-number/16)/100)/({_Radius}/100)*1000)*0.8%":
+						set {_Progress} to "%(((loop-number/16)/100)/({_Radius}/100)*1000)*0.8%"
+						set action bar of all players to "{@P}{@C} &cGenerating Nether: &r&7~{@H}%{_Progress}%%% &8| {@C}TPS: {@H}%tps% &8| {@C}CPU: {@H}%cpu usage%%% &8| {@C}RAM: {@H}%free memory in mb%MB"
+					set {_Progress} to "%(((loop-number/16)/100)/({_Radius}/100)*1000)*0.8%"
+					loop {_Radius}*2 times:
+						add 1 to {_BlocksLoopedZ}
+						if {PregenGoing} is not set:
+							stop trigger
+						if {_BlocksLoopedZ} is 16:
+							set {_BlocksLoopedZ} to 0
+							set {_XCoord} to (loop-number-1) - arg-1
+							set {_ZCoord} to (loop-number-2) - arg-1
+							set {_ChunkLocation} to location at {_XCoord}, 255, {_ZCoord} of the world {_isnether}
+							add 1 to {_ChunksLoaded}
+							generate chunk at {_ChunkLocation}
+							if {@DebugMode} is true:
+								broadcast "{@P}{@C} Generating {@H}%chunk at {_ChunkLocation}%{@C}. {@H}%{_ChunksLoaded}%{@C}/{@H}{@ChunksPerTick}{@C} until waiting a tick."
+							if {_ChunksLoaded} is {@ChunksPerTick}:
+								wait 1 tick
+								if {@DebugMode} is true:
+									send "{@P}{@C} Waited a tick after generating {@H}%chunk at {_ChunkLocation}%{@C}." to all ops
+								set {_ChunksLoaded} to 0
+								while {tps} is less than 18:
+									set action bar of all players to "{@P}{@C} &oWaiting for TPS: &r&7~{@H}%{_Progress}%%% &8| {@C}TPS: {@H}%tps% &8| {@C}CPU: {@H}%cpu usage%%% &8| {@C}RAM: {@H}%free memory in mb%MB"
+									wait 4 ticks
+		set action bar of all players to "{@P}{@C} &a&oComplete"
+		broadcast "{@P}{@C} Pregen has finished for {@H}%{_world}%{@C} with a {@H}%arg-1%{@C} radius (took {@H}%difference between {_PregenStart} and now%{@C})."
+		broadcast "&7&o[It is recommended that you restart after pregeneration is complete.]"
