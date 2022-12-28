@@ -1,0 +1,16 @@
+import:
+	org.bukkit.event.entity.FoodLevelChangeEvent
+	org.bukkit.event.player.PlayerItemConsumeEvent
+
+on PlayerItemConsumeEvent:
+	wait 1 tick
+	set {_player} to event.getPlayer()
+	{_player}.setSaturation({_player}.getSaturation()*2.5)
+
+on FoodLevelChangeEvent:
+	if (event.getFoodLevel() < event.getEntity().getFoodLevel()):
+		set {_r} to random integer between 0 and 100
+		if {_r} < 75:
+			set {_player} to event.getEntity()
+			set {_amount} to {_player}.getFoodLevel()
+			event.setFoodLevel({_amount})
