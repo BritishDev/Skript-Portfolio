@@ -1,0 +1,55 @@
+
+on load:
+	createScenario("Enemy Recon", "EnemyRecon", redstone dust, "You can do /er <player> to see their inventory and some basic information on them. You get one 'recon' for every kill you get. There's a 30%% chance that you get caught spying on someone, as a message is broadcasted in chat.")
+
+options:
+	P: &5Enemy Recon &8»&7
+	A: &8»&7
+
+command /myrecons:
+	trigger:
+		if {Scen::%{UHC::Scenario::Enemy Recon::VariableCheck}%} is "Enabled":
+			send "{@P} You have &f%{UHC::Enemy Recon::%player%}/1% &7recons."
+		else:
+			send "{@P} This scenario is not enabled."
+
+command /er <player>:
+	aliases: /recon
+	trigger:
+		if {Scen::%{UHC::Scenario::Enemy Recon::VariableCheck}%} isn't "Enabled":
+			send "{@P} This scenario isn't enabled."
+			stop
+		if sender is arg-1:
+			send "{@P} You can't create a report on yourself."
+			stop
+		if {UHC::Enemy Recon::%player%} is less than 1:
+			send "{@P} You do not have any more recons left."
+			stop
+		if {UHC::Enemy Recon::%player%} is not set:
+			send "{@P} You do not have any more recons left."
+			stop
+		open chest with 6 rows named "&a%arg 1%" to player
+		loop integers from 0 to 35:
+			set {_s} to (slot loop-integer of arg-1)
+			format slot loop-integer+18 of sender with {_s} with lore " {@A} &7Durability: &a%{_s}'s max durability-{_s}'s durability%&8/&a%{_s}'s max durability%|| {@A} &7Slot: &a%loop-integer+1%||||" to be unstealable
+		loop integers from 0 to 17:
+			format slot loop-integer of sender with lime stained glass pane named "&0♿" to be unstealable
+		format slot 1 of player with helmet of arg-1 to be unstealable
+		format slot 2 of player with chestplate of arg-1 to be unstealable
+		format slot 6 of player with leggings of arg-1 to be unstealable
+		format slot 7 of player with boots of arg-1 to be unstealable
+		loop split "Health:%arg-1's health*10%%%&8/&a%arg-1's max health*10%%%+XP:%level of arg 1%+Location:&a%floor(x-coordinate of arg-1)%&7, &a%floor(y-coordinate of arg-1)%&7, &a%floor(z-coordinate of arg-1)%+Biome:%biome of arg-1%" at "+":
+			set {_f::*} to split "%loop-value%" at ":"
+			set {_%{_f::1}%} to " {@A} &7%{_f::1}%: &a%{_f::2}%"
+		format slot 4 of player with book named "{@P} Report: &a%arg 1%" with lore "%{_health}%||%{_xp}%||%{_location}%||%{_biome}%" to be unstealable
+		format slot 17 of player with red stained glass pane named " {@A} &cClose" to close
+		remove 1 from {UHC::Enemy Recon::%player%}
+		chance of 30%
+		broadcast "{@P} &f%sender%&7 was caught spying on &f%arg 1%&7."
+
+on death of player:
+	attacker is a player
+	{UHC::Game::Running} is set
+	if {Scen::%{UHC::Scenario::Enemy Recon::VariableCheck}%} is "Enabled":
+		add 1 to {UHC::Enemy Recon::%attacker%}
+		send "{@P} You have &f%{UHC::Enemy Recon::%attacker%}/1% &7recons." to attacker
