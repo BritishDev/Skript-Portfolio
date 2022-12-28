@@ -1,0 +1,113 @@
+
+options:
+	P: &5Armored Titan &8»&7
+	L: &8&m------------------------------------------
+
+on load:
+	createScenario("Armored Titan", "ArmoredTitan", zombie spawn egg, "An armored titan spawns at 0,0, defeat the titan to get big rewards, be wary that it attacks back")
+
+on damage of giant:
+	{Scen::%{UHC::Scenario::Armored Titan::VariableCheck}%} is "Enabled"
+	send "{@P} The Titan is at &a%health of victim*10%%%&7." to attacker
+	play sound "mob.irongolem.hit" with volume 1 and pitch 1 at attacker for attacker
+	if projectile exists:
+		projectile is arrow
+		add 1 to {UHC::Titan Arrows::%attacker%} 
+		if {UHC::Titan Arrows::%attacker%} is greater than 4:
+			send "{@P} &oA tnt will now be dropped on your head..." to attacker
+			spawn 1 tnt at attacker
+			set {UHC::Titan Arrows::%attacker%} to 0
+		else:
+			send "{@P} &f%5 - {UHC::Titan Arrows::%attacker%}% arrow shots&7 before getting a tnt dropped on you." to attacker
+	else:
+		add 1 to {UHC::Titan Attacks::%attacker%} 
+		if {UHC::Titan Attacks::%attacker%} is greater than 9:
+			send "{@P} &oPrepare to move back..." to attacker
+			set {UHC::Titan Attacks::%attacker%} to 0
+			wait 2.5 seconds
+			if distance between victim and attacker is less than 10:
+				damage attacker by 1.5 hearts
+				create a safe explosion with force 1.5 at victim's location
+				push attacker (direction from victim to attacker) at speed 2.5
+		else:
+			send "{@P} &f%10 - {UHC::Titan Attacks::%attacker%}% swings&7 before the Titan activates &oseismic wave&7." to attacker
+
+function spawnGiant(w: world):
+	spawn a giant 10 meters above (spawn point of {_w})
+	set {_t} to last spawned giant
+	equip {_t} with golden helmet
+	equip {_t} with golden chestplate
+	equip {_t} with golden leggings
+	equip {_t} with golden boots
+	set {_t}'s max health to 2000
+	set {_t}'s name to "&aTitan"
+	set {_t}'s health to 2000
+	broadcast "{@L}"
+	broadcast " "
+	broadcast "{@P} A titan has spawned at &f%location of {_t}%&7."
+	broadcast "{@P} They have &a10000 HP&7 and they will drop care packages upon dying."
+
+	broadcast " "
+	broadcast "{@L}"
+
+every 5 seconds:
+	{Scen::%{UHC::Scenario::Armored Titan::VariableCheck}%} is "Enabled"
+	loop all entities:
+		loop-entity-1 is giant
+		loop players in radius 50 around loop-entity-1:
+			make loop-entity-1 pathfind to loop-player's location with speed 0.75
+		loop players in radius 6 around loop-entity-1:
+			shoot a zombie from loop-entity-1 at speed 10 
+			push last spawned zombie (direction from loop-entity-1 to loop-player) at speed 0.75
+
+function getRandomLoot(i: int = 1) :: itemtype:
+	set {_r} to random integer between 1 and 4
+	if {_r} is 1:
+		set {_rr} to random integer between 1 and 5
+		return "%{_rr}% golden apple item" parsed as item type
+	if {_r} is 2:
+		set {_rr} to random integer between 6 and 12
+		return "%{_rr}% diamond" parsed as item type
+	if {_r} is 3:
+		set {_rr} to random integer between 16 and 35
+		return "%{_rr}% arrow" parsed as item type
+	if {_r} is 4:
+		set {_rr} to random integer between 8 and 16
+		return "%{_rr}% gold" parsed as item type
+
+on item merge:
+	event-item's name is "&aCare Package"
+	cancel event
+
+on death of giant:
+	{Scen::%{UHC::Scenario::Armored Titan::VariableCheck}%} is "Enabled"
+	loop all players:
+		play sound "mob.wither.death" with volume 1 and pitch 1 at loop-player for loop-player
+	broadcast "{@L}"
+	broadcast " "
+	set {_l} to random integer between 6 and 12
+	set {_loc} to victim's location
+	add north, south, east, west, northwest, northeast, southwest and southeast to {_directions::*}
+	loop {_l} times:
+		drop chest named "&aCare Package" 10 meters above {_loc}
+		set {_item} to last dropped item
+		add "{CustomName:""&aCare Package"",CustomNameVisible:1,NoGravity:1b}" to nbt of {_item}
+		set {_push} to a random element out of {_directions::*}
+		push {_item} {_push} at speed 0.5
+
+	broadcast "{@P} The giant has died at &f%victim's location%&7, it has dropped &f%{_l}% care packages&7."
+	broadcast "{@P} They have been scattered nearby its death location, find them."
+	broadcast " "
+	broadcast "{@L}"
+
+on right click:
+	{Scen::%{UHC::Scenario::Armored Titan::VariableCheck}%} is "Enabled"
+	name of player's tool is "&aCare Package"
+	cancel event
+	set player's targeted block to chest named "&aCare Package"
+	remove 1 of player's tool from player's inventory
+	send "{@P} Placed a care package!"
+	set {_r} to random integer between 6 and 12
+	loop {_r} times:
+		set {_a} to random integer between 1 and 26
+		set slot {_a} of block at targeted block's location to getRandomLoot()
