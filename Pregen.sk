@@ -1,6 +1,6 @@
 
 options:
-	P: &2Pregen &8» #Prefix
+	P: &2Pregen &8»
 	H: &a #Highlight
 	C: &7 #Normal
 	ChunksPerTick: 4 #How many chunks to load per tick
