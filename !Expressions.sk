@@ -1,5 +1,4 @@
 
-
 expression [server] region:
 	get:
 		if current server is "NA-UHC1":
@@ -8,3 +7,6 @@ expression [server] region:
 			return "EU1"	
 		if current server is "NA-UHC2":
 			return "NA2"						
+			
+on load:
+	broadcast "%server region%"
