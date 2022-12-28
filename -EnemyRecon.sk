@@ -3,7 +3,7 @@ on load:
 	createScenario("Enemy Recon", "EnemyRecon", redstone dust, "You can do /er <player> to see their inventory and some basic information on them. You get one 'recon' for every kill you get. There's a 30%% chance that you get caught spying on someone, as a message is broadcasted in chat.")
 
 options:
-	P: &5Enemy Recon &8»&7
+	P: &5Enemy Recon &8»&r
 	A: &8»&7
 
 command /myrecons:
