@@ -1,0 +1,10 @@
+
+
+expression [server] region:
+	get:
+		if current server is "NA-UHC1":
+			return "NA1"
+		if current server is "EU-UHC1":
+			return "EU1"	
+		if current server is "NA-UHC2":
+			return "NA2"						
