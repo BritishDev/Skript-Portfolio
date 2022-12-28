@@ -1,0 +1,81 @@
+#- Originally By Mortimier for Chunk Apocalypse
+#- Edited By DancingNinjas_ for Underground Parallel
+ 
+options:
+        P: &5Underground Parallel &8»&7
+
+on load:
+  createScenario("Underground Parallel", "UndergroundParallel", lapis lazuli, "Under y40 is an exact copy of the overworld with leaves replaced with ores and logs replaced with gravel.")
+
+
+command /undergroundparallel <integer> <integer> <world>:
+	usage: /undergroundparallel <map radius> <radius of blocks to change every 5 ticks> <world name>
+	permission: uhc.command.pregen
+	trigger:
+		set {_chunknum} to 2*arg 1/arg 2
+		set {_chunkx} to arg 1
+		set {_chunkz} to arg 1
+		set {_size} to arg 2
+		if {_chunkz} is not divisible by {_size}:
+			send "{@P} %{_chunkz}% is not divisible by %{_size}%!"
+			send "{@P} Please change %{_size}% to a new value or increase the map radius!"
+			stop
+		broadcast "{@P} Generating Underground Parallel in '%arg 3%'! There may be lag!"
+		loop {_chunknum} times:
+			loop {_chunknum} times:
+				{undergroundparallel.cancel} is true:
+					set {undergroundparallel.cancel} to false
+					stop trigger
+				broadcast "{@P} Creating Underground Parallel at &ax: %{_chunkx}%&7,&a z: %{_chunkz}%"
+				loop blocks from (block at (the location at {_chunkx}, 55, {_chunkz} in arg 3)) to (block at (the location at ({_chunkx}-{_size}), 55, {_chunkz} in arg 3)):
+					loop blocks from (loop-block-1) to (the block {_size} meters north of loop-block-1):
+						loop blocks from (loop-block-2) to (the block 40 meters above loop-block-2):
+							if loop-block-3 is leaves:
+								set {_randomchance} to a random integer between 0.3 and 199.8
+								if {_randomchance} is 1:
+									set block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 to diamond ore
+								else if {_randomchance} is 2 or 3:
+									set block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 to gold ore
+								else if {_randomchance} is between 4 and 52:
+									set block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 to coal ore
+   
+								else if {_randomchance} is between 53 and 100:
+									set block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 to iron ore
+ 
+								else if {_randomchance} is between 101 and 150:
+									set block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 to stone
+								else if {_randomchance} is between 151 and 200:
+									set block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 to lapis ore
+
+							else if loop-block-3 is oak wood or spruce wood or birch wood or acacia wood or dark oak wood or jungle wood:
+								set {_randomchance} to a random integer between 0.3 and 100.2
+								if {_randomchance} is between 0 and 10:
+									chance of 50%:
+										set block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 to glowstone
+									else:
+										set block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 to redstone ore
+								else:
+									set block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 to gravel
+								   
+							else:
+								if loop-block-3 is air:
+									if block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 is not wood plank or fence or rail or cobweb:
+										set block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 to block at loop-block-3
+								else:
+									set block at location (loop-block-3's x coordinate), ((loop-block-3's y coordinate) - 54), (loop-block-3's z coordinate) in arg-3 to block at loop-block-3
+							   
+				wait 5 tick
+				subtract arg 2 from {_chunkx}
+			set {_chunkx} to arg 1
+			subtract {_size} from {_chunkz}
+		send "{@P} &fUnderground Parallel&7 process finished! Restarting the server in &f5 seconds&7." to all ops
+		if {PregenRunning} is set:
+			delete {PregenRunning}
+			wait 5 seconds 
+			command "/restart"
+			   
+command /upcancel:
+	permission: skript.op
+	trigger:
+		set {undergroundparallel.cancel} to true
+		send "{@P} Underground Parallel Process Cancelled!" to all ops
