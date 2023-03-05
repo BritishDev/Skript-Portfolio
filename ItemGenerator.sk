@@ -1,0 +1,178 @@
+options:
+	P : &6Generator &8»&r
+	A : &8»&r
+	AA : &8«&r
+
+function compare(1: inventory, 2: inventory) :: boolean:
+	return false if (name of {_1}) != (name of {_2})
+	return false if (rows of {_1}) != (rows of {_2})
+	return false if type of {_1} != type of {_2}
+	return true
+
+command /generator [<text>] [<text>] [<text>]:
+	permission: op 
+	permission message: &cYou don't have the required permissions for this command
+	trigger:
+		if arg-1 is not set:
+			message "{@P} &7You are missing a required argument!%nl%"
+			loop "list", "addblock", "additem", "removeitem" and "removeblock":
+				message "&6(/generator %loop-value%)"
+
+		else if arg-1 is "addblock":
+			if arg-2 is not set:
+				message "{@P} &7You are missing an &6item type!" and "{@A} &7Example: &6/generator addblock diamond_block"
+				stop
+			if {Generator::Blocks::*} contains arg-2:
+				message "{@P} &7This block is already in the &6generator list!", "{@A} &6Block: %arg-2%" and "{@A} &6Items: %{Generator::Blocks::%arg-2%::Items::*}%"
+				stop
+			set {_i} to arg-2
+			replace all "_" in {_i} with " "
+			set {_i} to "%{_i}%" parsed as item type
+			if {_i} is not set:
+				message "{@P} &7Sorry but &6%arg-2% &7is not recognised as an item type!"
+				stop
+			add arg-2 to {Generator::Blocks::*}
+			message "{@P} &7You have added &6%arg-2% &7to the list of blocks where items can be generated on!"
+		else if arg-1 is "removeblock":
+			if arg-2 is not set:
+				message "{@P} &7You are missing an &6item type!" and "{@A} &7Example: &6/generator removeblock diamond_block"
+				stop
+			if {Generator::Blocks::*} does not contain arg-2:
+				message "{@P} &7This block isn't in the &6list &7of blocks that items can be generated on!"
+				stop
+			if {Generator::Blocks::%arg-2%::Items::*} is not set:
+				set {_i} to "No items"
+			else:
+				set {_i} to "%{Generator::Blocks::%arg-2%::Items::*}%"
+			delete {Generator::Blocks::%arg-2%::*}
+			remove arg-2 from {Generator::Blocks::*}
+			message "{@P} &7You have removed &6%arg-2% &7from the list of blocks that items can be generated on!"
+			message "{@A} &7Items also removed: &6%{_i}%"
+		else if arg-1 is "additem":
+			if arg-2 is not set:
+				message "{@P} &7You are missing an &6item type!" and "{@A} &7Example: &6/generator additem diamond_block wooden_stick"
+				stop
+			if arg-3 is not set:
+				message "{@P} &7Make sure you add an item you want to add to the &6chosen block!"
+				stop
+			if {Generator::Blocks::*} does not contain arg-2:
+				message "{@P} &7This block isn't in the &6list &7of blocks that items can be generated on!"
+				stop
+			if {Generator::Blocks::%arg-2%::Items::*} contains arg-3:
+				message "{@P} &7This 	item is &6already &7in the list of items that can be generated on &6%arg-2%"
+				stop
+			add arg-3 to {Generator::Blocks::%arg-2%::Items::*}
+			message "{@P} &7You have added &6%arg-3% &7to the list of items that can be generated on &6%arg-2%"
+		else if arg-1 is "removeitem":
+			if arg-2 is not set:
+				message "{@P} &7You are missing an &6item type!" and "{@A} &7Example: &6/generator removeitem diamond_block wooden_stick"
+				stop
+			if arg-3 is not set:
+				message "{@P} &7Make sure you add an item you want to remove from the &6chosen block!"
+				stop							
+			if {Generator::Blocks::*} does not contain arg-2:
+				message "{@P} &7This block isn't in the &6list &7of blocks that items can be generated on!"
+				stop
+			if {Generator::Blocks::%arg-2%::Items::*} contains arg-3:
+				message "{@P} &7This item is &6not &7in the list of items that can be generated on &6%arg-2%"
+				stop
+			remove arg-3 from {Generator::Blocks::%arg-2%::Items::*}
+			message "{@P} &7You have removed &6%arg-3% &7from the list of items that can be generated on &6%arg-2%"
+		else if arg-1 is "list":
+			set {_ch} to "%{Generator::Blocks::*}%"
+			if {_ch} is "<none>":
+				message "{@P} &7There are no blocks in the &6generator list!"
+				stop
+			else:
+				set {_s} to (size of {Generator::Blocks::*} / 9)
+				set {_s} to ceil({_s})
+			set metadata tag "GeneratorList" of player to chest inventory with {_s} rows named "{@A} &6Generator List {@AA}"
+			set {_l} to ({_s} * 9)
+			set slot (integers from 0 to {_l}) of metadata tag "GeneratorList" of player to orange stained glass pane 
+			set {_n} to 0 
+			loop {Generator::Blocks::*}:
+				set {_c} to "%loop-value%" in strict proper case
+				replace all "_" in {_c} with " "
+				set {_item} to ("%{_c}%" parsed as item type)
+				set {_c} to "%{_c}%" in strict proper case
+				set name of {_item} to "{@A} &6%{_c}% {@AA}"
+				add "&6&m---------------------------" to lore of {_item}
+				add "&7Items:" to lore of {_item}
+				if {Generator::Blocks::%loop-value%::Items::*} is set:
+					loop {Generator::Blocks::%loop-value%::Items::*}:
+						set {_o} to "%loop-value-2%"
+						replace all "_" with " " in {_o}
+						set {_o} to "%{_o}%" in strict proper case	
+						add "&7• &6%{_o}%" to lore of {_item}
+				else:
+					set {_o} to "&7No Items"
+					add "&7• &6%{_o}%" to lore of {_item}
+				add "&6&m---------------------------" to lore of {_item}
+				set slot {_n} of metadata tag "GeneratorList" of player to {_item}
+				add 1 to {_n}
+			open (metadata tag "GeneratorList" of player) to player
+
+on inventory click:
+	if compare(metadata tag "GeneratorList" of player, event-inventory) = true:
+		cancel event
+
+on place:
+	set {_i} to "%type of event-block%"
+	replace all " " with "_" in {_i}
+	if {Generator::Blocks::*} contains "%{_i}%":
+		add location of event-block to {Generator::Blocks::%{_i}%::Locations::*}
+
+on block break:
+	set {_loc} to location of event-block
+	loop {Generator::Blocks::*}:
+		set {_i} to "%loop-value%"
+		replace all "_" with " " in {_i}
+		if "%{_i}%" is "%type of event-block%":
+			remove {_loc} from {Generator::Blocks::%loop-value-1%::Locations::*}
+
+
+every 3 seconds:
+	loop {Generator::Blocks::*}:
+		if {Generator::Blocks::%loop-value-1%::Locations::*} is set:
+			loop {Generator::Blocks::%loop-value-1%::Locations::*}:
+				loop {Generator::Blocks::%loop-value-1%::Items::*}:
+					set {_i} to loop-value-3
+					replace all "_" with " " in {_i}
+					drop ({_i} parsed as item type) at loop-value-2 without velocity
+
+
+
+on tab complete of "/generator":
+	set tab completions to "list", "additem", "addblock", "removeitem" and "removeblock"
+	if tab arg-1 = "additem":
+		if {Generator::Blocks::*} is set:
+			set tab completions for position 2 to ({Generator::Blocks::*})
+		else:
+			set tab completions for position 2 to "(no-available-blocks)"
+		set {_i} to "%all available item types%"
+		replace all " and " with ", " in {_i}
+		replace all ", " with "," in {_i}
+		replace all " " with "_" in {_i}
+		set {_items::*} to {_i} split at ","
+		set tab completions for position 3 to {_items::*}
+	if tab arg-1 = "removeitem":
+		if {Generator::Blocks::*} is set:
+			set tab completions for position 2 to ({Generator::Blocks::*})
+		else:
+			set tab completions for position 2 to "(no-available-blocks)"
+		if {Generator::Blocks::%tab arg-2%::Items::*} is set:
+			set tab completions for position 3 to {Generator::Blocks::%tab arg-2%::Items::*}
+		else:
+			set tab completions for position 3 to "(no-available-items)"
+	if tab arg-1 = "removeblock":
+		if {Generator::Blocks::*} is set:
+			set tab completions for position 2 to ({Generator::Blocks::*})	
+		else:
+			set tab completions for position 2 to "(no-available-blocks)"
+	if tab arg-1 = "addblock":
+		set {_i} to "%all available block types%"
+		replace all " and " with ", " in {_i}
+		replace all ", " with "," in {_i}
+		replace all " " with "_" in {_i}
+		set {_items::*} to {_i} split at ","
+		set tab completions for position 2 to {_items::*}
