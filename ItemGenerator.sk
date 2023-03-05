@@ -86,7 +86,7 @@ command /generator [<text>] [<text>] [<text>]:
 			else:
 				set {_s} to (size of {Generator::Blocks::*} / 9)
 				set {_s} to ceil({_s})
-			set metadata tag "GeneratorList" of player to chest inventory with {_s} rows named "{@A} &6Generator List {@AA}"
+			set metadata tag "GeneratorList" of player to chest inventory with {_s} rows named "{@A} &6Generator List &7(%size of {Generator::Blocks::*}%&7){@AA}"
 			set {_l} to ({_s} * 9)
 			set slot (integers from 0 to {_l}) of metadata tag "GeneratorList" of player to orange stained glass pane 
 			set {_n} to 0 
@@ -138,7 +138,7 @@ every 3 seconds:
 				loop {Generator::Blocks::%loop-value-1%::Items::*}:
 					set {_i} to loop-value-3
 					replace all "_" with " " in {_i}
-					drop ({_i} parsed as item type) at loop-value-2 without velocity
+					drop ({_i} parsed as item type) at (location 1 above loop-value-2) without velocity
 
 
 
