@@ -1,0 +1,143 @@
+options:
+	P : &b&lsᴋʏ&3&lᴇsᴄᴀᴘᴇ &8| &7
+	A : &8»&7
+	AA : &8«&7
+
+command /setsupplydrops:
+	permission: op 
+	permission message: &cYou can't use this command 
+	trigger:
+		set {Drops::Location} to location of player 
+		message "{@P} &7You have set the supply drop location to &3%{Drops::Location}%"
+
+command /deletehologram:
+	permission: op 
+	permission message: &cYou can't use this command 
+	trigger:
+		delete block at {Drops::Location}
+		loop {Drops::Hologram::*}:
+			delete holo loop-value
+		delete {SP::*}
+		message "{@P} &7Deleted supply drop and hologram"	
+
+command /addsupplydropreward:
+	permission: op 
+	permission message: &cYou can't use this command 
+	trigger:
+		add player's held item to {Drops::Rewards::*}
+		message "{@P} &7You have added &3%player's held item% &7to the rewards."
+		message "{@P} &7Updated Rewards: &b%{Drops::Rewards::*}%"
+
+function createSupply():
+	block at {Drops::Location} is not a note block
+	if {Drops::Location} is not set:
+		message "&7&o[Console: Locations is not set, set it please. Not spawning supply drop.]" to all ops 
+		stop
+	set {_n} to a random integer between 1 and 4
+	if {_n} is 1:
+		set {_stars} to "★☆☆☆"
+		set {Drops::Star} to {_stars}
+	else if {_n} is 2:
+		set {_stars} to "★★☆☆"
+		set {Drops::Star} to {_stars}
+	else if {_n} is 3:
+		set {_stars} to "★★★☆"
+		set {Drops::Star} to {_stars}
+	else if {_n} is 4:
+		set {_stars} to "★★★★"
+		set {Drops::Star} to {_stars}
+	set {_x} to x-coordinate of {Drops::Location}
+	set {_y} to round (y-coordinate of {Drops::Location})
+	set {_z} to z-coordinate of {Drops::Location}
+	set {_w} to world of {Drops::Location}
+	set {_SkyLocation} to location({_x}, 255, {_z}, world {_w})
+	while (y-coordinate of {_SkyLocation}) is not {_y}:
+		if block at {_SkyLocation} is a note block:
+			set block at {_SkyLocation} to air
+		set y-coordinate of {_SkyLocation} to (y-coordinate of {_SkyLocation} - 1)
+		set block at {_SkyLocation} to note block
+		chance of 25%:
+			launch flickering ball firework colored cyan at {_SkyLocation} timed 0
+		wait 1 tick
+	set {_note} to block at {_SkyLocation}
+	broadcast "{@P} &7A supply drop has spawned at &b(%x-coordinate of {_SkyLocation}%, %y-coordinate of {_SkyLocation}%, %z-coordinate of {_SkyLocation}%)"
+	create new holo with lines "&b&m---------------------", "{@A} &3Supply Drop &b%{_stars}% {@AA}" and "&b&m---------------------" at (location 1.5 above {_note}) and store it in {Drops::Hologram::*}
+	loop 100 times:
+		launch flickering ball firework colored cyan at {_SkyLocation} timed 0
+	set {Drops::Time} to now
+	
+
+every real second:
+	block at {Drops::Location} is a note block 
+	loop all players in radius 5 of {Drops::Location}:
+		add 1 to {SP::%uuid of loop-player%::Progress}
+		if {SP::%uuid of loop-player%::Progress} < 100:
+			{SP::%uuid of loop-player%::Already Claimed} is not set
+			message "{@P} &7You are &3%100 - {SP::%uuid of loop-player%::Progress}%%% &7of the way there to claiming the supply drop." to loop-player
+		else:
+			{SP::%uuid of loop-player%::Already Claimed} is not set
+			message "{@P} &aYou have claimed the supply drop" to loop-player
+			loop 10 times:
+				launch flickering ball firework colored cyan at loop-player timed 0
+			set {SP::%uuid of loop-player%::Already Claimed} to true
+			broadcast "&8&m---------------------------------"
+			broadcast "{@P} &3%loop-player% &7has claimed the supply drop!"
+			broadcast "&b(%x-coordinate of {Drops::Location}%, %y-coordinate of {Drops::Location}%, %z-coordinate of {Drops::Location}%)"
+			broadcast "&8&m---------------------------------"
+			send title "{@A} &bCrate Claimed {@AA}" with subtitle "&7&oEnjoy your rewards!" to loop-player for 1 second
+			add 1 to {Drops::Statistics::%uuid of loop-player%}
+			loop {Drops::Hologram::*}:
+				delete holo loop-value-2 
+			delete {SP::*}
+			delete block at {Drops::Location}
+			if {Drops::Star} is "★☆☆☆":
+				set {_item} to a random element out of {Drops::Rewards::*}
+				give loop-player {_item}
+			else if {Drops::Star} is "★★☆☆":
+				set {_n} to a random integer between 1 and 2
+				loop {_n} times:
+					set {_item} to a random element out of {Drops::Rewards::*}
+					give loop-player {_item}	
+			else if {Drops::Star} is "★★★☆":
+				set {_n} to a random integer between 2 and 4
+				loop {_n} times:
+					set {_item} to a random element out of {Drops::Rewards::*}
+					give loop-player {_item}
+			else if {Drops::Star} is "★★★★":
+				set {_n} to a random integer between 4 and 5
+				loop {_n} times:
+					set {_item} to a random element out of {Drops::Rewards::*}
+					give loop-player {_item}			
+			delete {Drops::Star}
+			wait 1 second 
+			message "{@P} &7You now have claimed &b%{Drops::Statistics::%uuid of loop-player%}% &7crates" to loop-player
+	if difference between now and {Drops::Time} > 5 minutes:
+		loop {Drops::Hologram::*}:
+			delete holo loop-value 
+		delete {SP::*}
+		delete block at {Drops::Location}
+		delete {Drops::Time}
+		delete {Drops::Star}
+		message "&7&o[Console: Despawned crate, been longer than 5 mintues.]" to all ops
+
+command /supplydrops [<offlineplayer>]:
+	trigger:
+		if arg-1 is not set:
+			if {Drops::Statistics::%uuid of sender%} is not set:
+				message "{@P} &7You have not claimed any crates yet!"
+			else:
+				message "{@P} &7You have claimed &b%{Drops::Statistics::%uuid of player%}% &7crates"
+		else if arg-1 is set:
+			if {Drops::Statistics::%uuid of arg-1%} is not set:
+				message "{@P} &b%arg-1% &7has not claimed any crates yet!"
+			else:
+				message "{@P} &b%arg-1% &7has claimed &b%{Drops::Statistics::%uuid of arg-1%}% &7crates"
+
+
+every 55 minutes:
+	broadcast "&8&m---------------------------------"
+	broadcast "{@P} A crate is spawning in &b5 &7minutes!"
+	broadcast "&b(%x-coordinate of {Drops::Location}%, %y-coordinate of {Drops::Location}%, %z-coordinate of {Drops::Location}%)"
+	broadcast "&8&m---------------------------------"
+	wait 5 minutes
+	createSupply()
