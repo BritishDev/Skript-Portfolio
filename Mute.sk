@@ -1,0 +1,87 @@
+options:
+	P : &cLitebans &8|&f
+	A : &7»&f
+	AA : &7«&f
+
+
+command /mute [<offlineplayer>] [<timespan>] [<string>]:
+	permission: skript.mute
+	permission message: {@P} &7You don't have the permission to use this command!
+	trigger:
+		if arg-1 is not set:
+			message "{@P} &7Please provide a valid player!"
+			stop
+		if arg-2 is not set:
+			message "{@P} &7Please provide a valid time frame!"
+			stop
+		if arg-3 is not set:
+			message "{@P} &7Please provide a valid reason!"
+			stop
+		if {Mute::%uuid of sender%::*} contains uuid of arg-1:
+			message "{@P} &7It seems like you have already muted this player!"
+			stop
+		#if arg-1 is sender:
+		#	message "{@P} &7Sorry but you can't mute yourself!"
+		#	stop
+		add uuid of arg-1 to {Mute::%uuid of sender%::*}
+		set {Mute::%uuid of sender%::%uuid of arg-1%::Duration} to arg-2
+		set {Mute::%uuid of sender%::%uuid of arg-1%::Unmute} to arg-2 from now
+		set {Mute::%uuid of sender%::%uuid of arg-1%::Date} to now
+		set {Mute::%uuid of sender%::%uuid of arg-1%::Reason} to arg-3
+		message "&a%sender% &ftempmuted &a%arg-1% &ffor %arg-2% for '&a%arg-3%&f'"
+
+
+on chat:
+	cancel event
+	loop all players:
+		if {Mute::%uuid of loop-player%::*} does not contain uuid of player:
+			message "&f%player% {@A} &f%message%" to loop-player
+		else:
+			if {Mute::%uuid of loop-player%::%loop-value%::Date} < now:
+				delete {Mute::%uuid of loop-player%::%loop-value%::*}
+				delete {Mute::%uuid of loop-player%::%loop-value%}
+				message "&a%player% &fhas been unmuted." to loop-player
+				message "&f%player% {@A} &f%message%" to loop-player
+
+
+
+command /unmute [<offlineplayer>]:
+	permission: skript.mute
+	permission message: {@P} &7You don't have the permission to use this command!
+	trigger:
+		if arg-1 is not set:
+			message "{@P} &7Please provide a valid player!"
+			stop
+		if {Mute::%uuid of sender%::*} does not contain uuid of arg-1:
+			message "{@P} &7Sorry but it seems like &c%arg-1% &7is not muted!"
+			stop
+		remove uuid of arg-1 from {Mute::%uuid of sender%::*}
+		message "&a%sender% &fhas unmuted &a%arg-1%"
+
+command /checkmute [<offlineplayer>]:
+	permission: skript.mute
+	permission message: {@P} &7You don't have the permission to use this command!
+	trigger:
+		if arg-1 is not set:
+			message "{@P} &7Please provide a valid player!"
+			stop
+		if {Mute::%uuid of sender%::*} does not contain uuid of arg-1:
+			message "{@P} &7Sorry but it seems like &c%arg-1% &7is not muted!"
+			stop
+		message "&fPlayer: &a%arg-1%"
+		message "&fMuted: &aTrue"
+		message "&fDuration: %{Mute::%uuid of sender%::%uuid of arg-1%::Unmute}%"
+		message "&fUnmuted By: %{Mute::%uuid of sender%::%uuid of arg-1%::Unmute}%"
+		message "&fMuted On: %{Mute::%uuid of sender%::%uuid of arg-1%::Date}%"
+		message ""
+
+on tab complete of "/mute":
+	set tab completions for position 1 to all offline players
+	set tab completions for position 2 to "(insert-timeframe ex: 1 hour)"
+	set tab completions for position 4 to "(insert-reason ex: Annoying)"
+
+on tab complete of "/unmute":
+	loop {Mute::%uuid of player%::*}:
+		set {_p} to "%loop-value%" parsed as offlineplayer
+		add {_p} to {_players::*}
+	set tab completions for position 1 to {_players::*}

@@ -1,0 +1,297 @@
+options:
+	P : &6Teams &8| &7
+	A : &8?&7
+
+
+on load:
+	set {-Teams::BlockedWords::*} to contents from URL "https://gist.githubusercontent.com/BritishDev/8f078ea3d3b7d318bee1eff544cea934/raw/7130b3cbae9c096a5c1e8a42e014e04043055133/gistfile1.txt"
+
+function onlineCheck(u: text) :: text:
+	set {_p} to "%{_u}%" parsed as offlineplayer
+	if {_p} is online:
+		set {_r} to "&a(Online)&7"
+	else:
+		set {_r} to "&c(Offline)&7"
+	return {_r}
+
+function getTeam(p: player) :: text:
+	set {_u} to uuid of {_p}
+	set {_name} to "%{Team::InTeam::%{_u}%::Name}%" in strict proper case
+	return {_name}
+
+command /teams [<text>] [<text>]:
+	aliases: /team
+	trigger:
+		if arg-1 is not set:
+			message "{@P} &7You are missing an argument!"
+			loop "create", "delete", "kick", "list", "invite", "accept", "deny", "help":
+				message "{@A} &6(/teams %loop-value%)"
+		else if arg-1 is "create":
+			if {Team::InTeam::%uuid of sender%} is true:
+				message "{@P} &7You are currently already in a team. Please leave it before creating one"
+				stop
+			if arg-2 is not set:
+				message "{@P} &7You need to provide a valid team name" and "{@A} &7(Example: &6/teams create Team1&7)"
+				stop
+			if {Team::TakenNames} contains arg-2:
+				message "{@P} &7Sorry but this name has already been taken!"
+				stop
+			set {_t} to arg-2
+			if {-Teams::BlockedWords::*} contains arg-2:
+				message "{@P} &7You can't create a team with that name as it is a blocked word!"
+				stop
+			set {Team::InTeam::%uuid of sender%} to true
+			set {Team::InTeam::%uuid of sender%::Name} to arg-2
+			set {Team::Teams::%arg-2%::Owner} to uuid of sender
+			set {Team::Teams::%arg-2%::FriendlyFire} to true
+			add uuid of sender to {Team::Teams::%arg-2%::Players::*}
+			add arg-2 to {Team::TakenNames}
+			broadcast "{@P} &6%sender% &7has created the Team &6%arg-2%"
+		else if arg-1 is "delete":
+			if {Team::InTeam::%uuid of sender%} is not set:
+				message "{@P} &7You are currently not in a team!"
+				stop
+			set {_t} to {Team::InTeam::%uuid of sender%::Name}
+			if {Team::Teams::%{_t}%::Owner} is not uuid of sender:
+				message "{@P} &7You can't delete this team as you are not the owner!"
+				stop
+			if (size of {Team::Teams::%{_t}%::Players::*}) > 1:
+				message "{@P} &7There are currently members in your team, kick them before deleting your team!"
+				stop
+			message "{@P} &7Deleting your team..."
+			remove {Team::InTeam::%uuid of sender%::Name} from {Team::TakenNames}
+			delete {Team::InTeam::%uuid of sender%::*}
+			delete {Team::InTeaM::%uuid of sender%}
+			delete {Team::Teams::%{_t}%::*}
+			delete {Team::Teams::%{_t}%}
+			message "{@P} &7Your team has now been deleted!"
+		else if arg-1 is "invite":
+			if arg-2 is not set:
+				message "{@P} &7Please provide the IGN of an online player!"
+				stop
+			set {_p} to arg-2 parsed as offlineplayer
+			if command sender is {_p}:
+				message "{@P} &7Sorry but you can't invite yourself :(" to sender
+				stop
+			if {_p} is not online:
+				message "{@P} &7Sorry but &6%{_p}% &7is currently not online!"
+				stop
+			if {Team::Pending::%uuid of {_p}%::*} contains uuid of sender:
+				message "{@P} &7Sorry but this player already has a pending request from you!"
+				stop
+			if {Team::InTeam::%uuid of {_p}%} is true:
+				message "{@P} &7Sorry but this player is already in a team!"
+				stop
+			add uuid of sender to {Team::Pending::%uuid of {_p}%::*}
+			message "{@P} &7You have received a team invite from &6%sender%!" to {_p}
+			message "{@A} &7If you want to join, do &6/teams accept %sender%" to {_p}
+			message "{@A} &7If you want to deny, do &6/teams deny %sender%" to {_p}
+			message "{@P} &7You have sent an invite to &6%{_p}%" to sender
+			while {Team::Pending::%uuid of {_p}%::*} contains uuid of sender:
+				add 1 to {_t}
+				if {_t} >= 30:
+					message "{@P} &7Your team request from &6%sender% &7has now expired!" to {_p}
+					message "{@P} &7Your team request to &6%{_p}% &7has now expired!" to sender
+					remove uuid of sender from {Team::Pending::%uuid of {_p}%::*}
+				wait 1 second
+		else if arg-1 is "accept":
+			if arg-2 is not set:
+				message "{@P} &7Please provide the IGN of an online player!"
+				stop
+			set {_p} to arg-2 parsed as offlineplayer
+			if {Team::Pending::%uuid of sender%::*} does not contain uuid of {_p}:
+				message "{@P} &7Sorry but you don't have a team invite from &6%{_p}%" to sender
+				stop
+			if {Team::InTeam::%uuid of {_p}%} is not true:
+				message "{@P} &7Sorry but it doesn't seem as if &6%{_p}% &7is in a team!" to sender
+				stop
+			if {Team::InTeam::%uuid of sender%} is true:
+				message "{@P} &7Sorry but you can't join a team while in a team!" to sender
+				stop
+			add uuid of sender to {Team::Teams::%{Team::InTeam::%uuid of {_p}%::Name}%::Players::*}
+			remove uuid of {_p} from {Team::Pending::%uuid of sender%::*}
+			loop {Team::Teams::%{Team::InTeam::%uuid of {_p}%::Name}%::Players::*}:
+				loop-value is not uuid of sender
+				message "{@P} &6%sender% &7has joined your team!" to (loop-value parsed as offlineplayer)
+			message "{@P} &7You have &6joined &7%{Team::InTeam::%uuid of {_p}%::Name}%"
+			set {Team::InTeam::%uuid of sender%} to true
+			set {Team::InTeam::%uuid of sender%::Name} to {Team::InTeam::%uuid of {_p}%::Name}
+		else if arg-1 is "deny":
+			if arg-2 is not set:
+				message "{@P} &7Please provide the IGN of an online player!"
+				stop
+			set {_p} to arg-2 parsed as offlineplayer
+			if {Team::Pending::%uuid of sender%::*} does not contain uuid of {_p}:
+				message "{@P} &7Sorry but you don't have a team invite from &6%{_p}%" to sender
+				stop
+			if {Team::InTeam::%uuid of {_p}%} is not true:
+				message "{@P} &7Sorry but it doesn't seem as if &6%{_p}% &7is in a team!" to sender
+				stop
+			if {Team::InTeam::%uuid of sender%} is true:
+				message "{@P} &7Sorry but you can't deny a team while in a team!" to sender
+				stop			
+			remove uuid of {_p} from {Team::Pending::%uuid of sender%::*}
+			message "{@P} &7Sorry but &6%sender% &7has rejected your team request" to {_p}
+			message "{@P} &7You have rejected the team request from &6%{_p}%" to sender
+		else if arg-1 is "list":
+			if {Team::InTeam::%uuid of sender%} is not true:
+				message "{@P} &7You need to be in a team to view your team!"
+				stop
+			if {Team::InTeam::%uuid of sender%::Name} is not set:
+				message "{@P} &7A team name is not binded to your IGN, please contact a developer!"
+				stop
+			set {_m::1} to "{@P} &7Team Information:"
+			set {_m::2} to ""
+			set {_m::3} to "&7Team Name: &6%{Team::InTeam::%uuid of sender%::Name}%"
+			set {_m::4} to "&7Team Size: &6%size of {Team::Teams::%{Team::InTeam::%uuid of sender%::Name}%::Players::*}%"
+			set {_o-ign} to "%{Team::Teams::%{Team::InTeam::%uuid of sender%::Name}%::Owner}%" parsed as offlineplayer
+			set {_m::5} to "&7Team Owner: &6%{_o-ign}% &r%onlineCheck({Team::Teams::%{Team::InTeam::%uuid of sender%::Name}%::Owner})%"
+			set {_o} to {Team::Teams::%{Team::InTeam::%uuid of sender%::Name}%::Owner}
+			loop {Team::Teams::%{Team::InTeam::%uuid of sender%::Name}%::Players::*}:
+				loop-value is not {Team::Teams::%{Team::InTeam::%uuid of sender%::Name}%::Owner}
+				add loop-value to {_members::*}
+			loop {_members::*}:
+				set {_p} to "%loop-value%" parsed as offlineplayer
+				set {_p-new} to "&6%{_p}% &r%onlineCheck(loop-value)%"
+				add {_p-new} to {_p::*}
+			if {_p::*} is not set:
+				set {_p::*} to "&7No Members!"
+			set {_m::6} to "&7Team Members: &6%{_p::*}%"
+			set {_m::7} to "&7Team Kills: &6%{Team::Teams::%{Team::InTeam::%uuid of sender%::Name}%::Kills} ? 0%"
+			set {_m::8} to "&7Team Deaths: &6%{Team::Teams::%{Team::InTeam::%uuid of sender%::Name}%::Deaths} ? 0%"
+			set {_m::9} to ""
+			message {_m::*}
+		else if arg-1 is "settings":
+			if {Team::InTeam::%uuid of sender%} is not true:
+				message "{@P} &7You need to be in a team to view your team!"
+				stop
+			if {Team::InTeam::%uuid of sender%::Name} is not set:
+				message "{@P} &7A team name is not binded to your IGN, please contact a developer!"
+				stop
+			if {Team::Teams::%getTeam(sender)%::Owner} is not uuid of sender:
+				message "{@P} &7You can't modify the settings of this team as you are not the owner!"
+				stop
+			set metadata tag "settings" of player to chest inventory with 3 rows named "{@P} &7Settings &7(&6%getTeam(sender)%&7)"
+			set slot (all integers between 0 and 27) of metadata tag "settings" of player to orange stained glass pane 
+			if {Team::Teams::%getTeam(sender)%::FriendlyFire} is true:
+				set {_s} to "&aEnabled"
+			else:
+				set {_s} to "&cDisabled"
+			set slot 13 of metadata tag "settings" of player to netherite sword with all flags hidden named "&6Friendly Fire" with lore "", "&7Status: %{_s}%", "", ""
+			open metadata tag "settings" of player to player 
+		else if arg-1 is "kick":
+			if {Team::InTeam::%uuid of sender%} is not true:
+				message "{@P} &7You need to be in a team to kick someone!"
+				stop
+			if {Team::InTeam::%uuid of sender%::Name} is not set:
+				message "{@P} &7A team name is not binded to your IGN, please contact a developer!"
+				stop
+			if {Team::Teams::%getTeam(sender)%::Owner} is not uuid of sender:
+				message "{@P} &7You can't kick anyone from this team as you are not the owner!"
+				stop
+			set {_p} to arg-2 parsed as offlineplayer
+			if {_p} is not set:
+				message "{@P} &7Please provide the IGN of an online player!"
+				stop
+			if {_p} is sender:
+				message "{@P} &7Sorry but you can't kick yourself!"
+				stop
+			set {_u} to uuid of {_p}
+			if {Team::Teams::%getTeam(sender)%::Players::*} does not contain {_u}:
+				message "{@P} &7Sorry but it seems like this player is not in the team!"
+				stop
+			if {Team::InTeam::%{_u}%} is not set:
+				message "{@P} &7Seems like this player is not in a team!"
+				stop
+			remove {_u} from {Team::Teams::%getTeam(sender)%::Players::*}
+			delete {Team::InTeam::%{_u}%::*}
+			delete {Team::InTeam::%{_u}%}
+			message "{@P} &7You have kicked &6%{_p}% &7from the team!"
+			loop {Team::Teams::%getTeam(sender)%::Players::*}:
+				loop-value is not uuid of sender
+				loop-value is not {_u}
+				message "{@P} &6%sender% &7has kicked &6%{_p}% &7from the team!" to (loop-value parsed as offline player)
+			message "{@P} &7You have been kicked from the team by &6%sender%" to ({_u} parsed as offlineplayer)
+		else if arg-1 is "leave":
+			if {Team::InTeam::%uuid of sender%} is not true:
+				message "{@P} &7You need to be in a team to leave one!"
+				stop
+			if {Team::InTeam::%uuid of sender%::Name} is not set:
+				message "{@P} &7A team name is not binded to your IGN, please contact a developer!"
+				stop
+			set {_u} to uuid of sender
+			remove {_u} from {Team::Teams::%getTeam(sender)%::Players::*}
+			delete {Team::InTeam::%{_u}%::*}
+			delete {Team::InTeam::%{_u}%}
+			message "{@P} &7You have left the team!"
+			loop {Team::Teams::%getTeam(sender)%::Players::*}:
+				loop-value is not uuid of sender
+				loop-value is not {_u}
+				message "{@P} &6%sender% &7has left the team!" to (loop-value parsed as offline player)
+on inventory click:
+	event-inventory is not player's inventory
+	event-inventory = (metadata tag "settings" of player)
+	cancel event
+	if index of event-slot is 13:
+		if {Team::Teams::%getTeam(player)%::FriendlyFire} is true:
+			delete {Team::Teams::%getTeam(player)%::FriendlyFire}
+			message "{@P} &7You have disabled friendly fire for your team!"
+			loop {Team::Teams::%{Team::InTeam::%uuid of player%::Name}%::Players::*}:
+				loop-value is not uuid of player
+				message "{@P} &6%player% &7has disabled Friendly Fire!" to (loop-value parsed as offlineplayer)
+			player command "/teams settings"
+		else:
+			set {Team::Teams::%getTeam(player)%::FriendlyFire} to true
+			message "{@P} &7You have enabled friendly fire for your team!"
+			loop {Team::Teams::%{Team::InTeam::%uuid of player%::Name}%::Players::*}:
+				loop-value is not uuid of player
+				message "{@P} &6%player% &7has enabled Friendly Fire!" to (loop-value parsed as offlineplayer)
+			player command "/teams settings"
+
+
+
+on death of player:
+	attacker is a player
+	{Team::InTeam::%uuid of attacker%} is true
+	add 1 to {Team::Teams::%getTeam(attacker)%::Kills}
+	
+
+on death of player:
+	{Team::InTeam::%uuid of victim%} is true
+	add 1 to {Team::Teams::%getTeam(victim)%::Deaths}
+
+
+
+on damage of player:
+	attacker is a player 
+	{Team::InTeam::%uuid of attacker%} is true
+	{Team::InTeam::%uuid of victim%} is true
+	{Team::InTeam::%uuid of attacker%::Name} is {Team::InTeam::%uuid of victim%::Name}
+	{Team::Teams::%getTeam(attacker)%::FriendlyFire} is not true
+	cancel event
+	message "{@P} &7You can't hit &6%victim% &7because they are on your team" to attacker
+	message "{@P} &7The attack from &6%victim% &7was prevented because they are your team mate" to victim
+
+on tab complete of "/teams":
+	set tab completions of position 1 to "create", "delete", "kick", "list", "invite", "accept", "deny", "settings"
+	if tab arg-1 = "create":
+		set tab completions for position 2 to "(enter-a-one-word-name)"
+	if tab arg-1 = "kick":
+		loop {Team::Teams::%{Team::InTeam::%uuid of player%::Name}%::Players::*}:
+			set {_p} to (loop-value parsed as offlineplayer)
+			add {_p} to {_players::*}
+		set tab completions for position 2 to {_players::*}
+	if tab arg-1 = "invite":
+		set tab completions for position 2 to all players 
+	if tab arg-1 = "deny":
+		set tab completions for position 2 to all players
+	if tab arg-1 = "accept":
+		set tab completions for position 2 to all players
+
+on placeholderapi placeholder request for prefix "custom":
+	if the identifier is "team":
+		set {_t} to getTeam(player)
+		if {_t} is not set:
+			set the result to ""
+		else:
+			set the result to " &7(&6Team %getTeam(player)%&7) "

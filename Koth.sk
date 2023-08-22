@@ -1,0 +1,348 @@
+options:
+	P : &6Koth &8»&r
+	A : &8»&r
+	AA : &8«&r
+	scoreboard : false
+
+import:
+	org.bukkit.Bukkit
+
+function contains(list: objects, check: object) :: boolean:
+	loop {_list::*}:
+		if loop-value is {_check}:
+			return true
+	return false
+
+
+expression:
+	return type: text
+	patterns:
+		time format from %timespan%
+	get:
+		set {_time} to (expr-1.getTicks()/20)
+		set {_d} to rounded down ((({_time}/60)/60)/24)
+		remove {_d}*60*60*24 from {_time}
+		set {_h} to rounded down ((({_time}/60)/60))
+		remove {_h}*60*60 from {_time}
+		set {_m} to rounded down ((({_time}/60)))
+		remove {_m}*60 from {_time}
+		set {_s} to rounded down ((({_time})))
+		loop "d", "h", "m" and "s":
+			{_%loop-value%} is not 0:
+				add "&6%{_%loop-value%}%&7%loop-value%" to {_t::*}
+		return join {_t::*} by ""
+
+function getLootbox() :: itemtype:
+	set {_i} to ender chest named "{@A} &6&lLoot Box {@AA}"
+	add "&8&m---------------------------" to lore of {_i}
+	add "&7Loot Inventory:" to lore of {_i}
+	add " " to lore of {_i}
+	if (size of {Koth::Loot::*}) < 1:
+		add "&7• &6Nothing!" to lore of {_i}
+	else:
+		loop {Koth::Loot::*}:
+			set {_o} to "%loop-value%" in strict proper case
+			add "&7• &6%{_o}%" to lore of {_i}
+	add " " to lore of {_i}
+	add "&8&m---------------------------" to lore of {_i}
+	return {_i}
+
+function resetKoth(i: integer):
+	set {Koth::Status} to "NOT_RUNNING"
+	delete {Koth::Capping::*}
+	delete {Koth::CappingTime}
+	delete {Koth::Capper}
+	delete {Koth::Uptime}
+	if {_i} is 1:
+		broadcast "{@P} &7The KOTH has been &6stopped!"
+
+on load:
+	wait 1 tick
+	resetKoth(0)
+	if {Koth::Timer} is not set:
+		set {Koth::Timer} to 5 minutes
+	if {@scoreboard} is true:
+		clear scoreboard of all players
+	if Bukkit.getPluginManager().getPlugin("SkBee") is not set:
+		message "{@P} &7This skript requires &6SkBee &7to be installed." to console
+		message "{@A} &7Download at &6https://github.com/ShaneBeee/SkBee/releases" to console
+
+	set {-i} to chest inventory with 3 rows named "{@P} &7Loot GUI"
+	set slot (integers from 0 to 27) of {-i} to orange stained glass pane 
+	set {_i} to ender chest named "{@A} &6&lLootbox Inventory {@AA}"
+	set slot 12 of {-i} to red stained glass pane named "{@A} &cReset Lootbox Inventory {@AA}" with lore "&7Click to reset!"
+	set slot 14 of {-i} to green stained glass pane named "{@A} &aAdd an item to Lootbox Inventory {@AA}" with lore "&7Click to add!"
+
+on join:
+	if player is op:
+		if Bukkit.getPluginManager().getPlugin("SkBee") is not set:
+			message "{@P} &7This skript requires &6SkBee &7to be installed."
+			message "{@A} &7Download at &6https://github.com/ShaneBeee/SkBee/releases"	
+
+command /koth [<text>] [<text>] [<text>]:
+	permission: op
+	permission message: &cYou are required to be OP!
+	trigger:
+		if arg-1 is not set:
+			message "{@P} &7You are missing an argument!" and " "
+			message "{@A} &6/koth syncregion <worldguard region name>" #Done
+			message "{@A} &6/koth setlocation" #Done
+			message "{@A} &6/koth stop" #Done
+			message "{@A} &6/koth start" #Done
+			message "{@A} &6/koth loot" #WIP
+			message "{@A} &6/koth timer <seconds>" #Done
+			message "{@A} &6/koth overview" #Done
+
+		else if arg-1 is "syncregion":
+			if arg-2 is not set:
+				message "{@P} &7Please &6provide &7a worldguard region!" and "{@A} &7Example: &6/koth syncregion KothRegion"
+				stop
+			if {Koth::Region} is arg-2:
+				message "{@P} &7The world guard region for the Koth already is &6%arg-2%"
+				stop
+			set {Koth::Region} to arg-2
+			message "{@P} &7The koth world guard region has been set to &6%arg-2%" and "{@A} &7Ensure this region does exist!"
+
+		else if arg-1 is "setlocation":
+			set {_x} to x-coord of sender
+			set {_y} to y-coord of sender
+			set {_z} to z-coord of sender 
+			set {_w} to world of sender 
+			if {Koth::Coords} is location({_x}, {_y}, {_z}, world {_w}):
+				message "{@P} &7The coords for the &6Koth &7is already set to:" and "{@A} &7Koth Coords: &6%{Koth::Coords}%"
+				stop
+			set {Koth::Coords} to location({_x}, {_y}, {_z}, world {_w})
+			message "{@P} &7You have set the &6Koth &7coordinates to:" and "{@A} &6(%{Koth::Coords}%"
+		
+		else if arg-1 is "stop":
+			if {Koth::Status} is not "RUNNING":
+				message "{@P} &7A &6Koth &7is &cnot &7currently running." and "{@A} &7Current Status: &6%{Koth::Status}%"
+				stop
+			set {Koth::Status} to "NOT_RUNNING"
+			message "&7&o[%sender%: Stopped current koth.]" to all ops
+			if {@scoreboard} is true:
+				clear scoreboard of all players
+			resetKoth(1)
+
+		else if arg-1 is "timer":
+			if {Koth::Status} is "RUNNING":
+				message "{@P} &7A &6Koth &7is currently running!"
+				message formatted "{@A} &7Please do &6/koth stop &7first! <run command:/koth stop>(Click here)"
+			if arg-2 is not set:
+				message "{@P} &7Please provide a timespan in &6seconds!"
+				stop
+			set {_c} to (arg-2 parsed as integer)
+			if {_c} is not set:
+				message "{@P} &7Please provide &6integers &7and not letters!"
+				stop
+			set {Koth::Timer} to ("%{_c}% seconds" parsed as timespan)
+			message "{@P} &7You have set the &6Koth Timer &7to %time format from {Koth::Timer}%"
+
+		
+		else if arg-1 is "start":
+			if {Koth::Status} is not "NOT_RUNNING":
+				message "{@P} &7A &6Koth &7is currently &6running." and "{@A} &7Current Status: &6%{Koth::Status}%"
+				stop
+			if {Koth::Coords} is not set:
+				message "{@P} &7The location for the &6Koth &7is currently not set!" 
+				message formatted "&7Please do &6/koth setlocation &7to set the location! <run command:/koth setlocation> &7(Click Here)"
+				stop
+			if {Koth::Region} is not set:
+				message "{@P} &7The world guard region for the &6Koth &7is currently not set!" 
+				message "&7Please do &6/koth syncregion <worldguard region>"
+				stop
+			if {Koth::Timer} is not set:
+				message "{@P} &7The KOTH Timer is &6currently &7not set!"
+				message "{@A} &7Please do &6/koth timer <seconds>"
+				stop 
+			set {_x} to round(x-coord of {Koth::Coords})
+			set {_y} to round(y-coord of {Koth::Coords})
+			set {_z} to round(z-coord of {Koth::Coords})
+			set {_c} to "&6(%{_x}%, %{_y}%, %{_z}%)"
+			set {Koth::Status} to "RUNNING"
+			set {Koth::CappingTime} to {Koth::Timer}
+			broadcast "&8&m------------------------------------" and " "
+			broadcast "{@P} &7A new &6Koth &7has started!"
+			broadcast "{@A} &6%{_c}%"
+			broadcast "{@A} &7Time to Capture: %time format from {Koth::Timer}%"
+			broadcast " " and "&8&m------------------------------------"
+			send title "{@A} &6Koth Started {@AA}" with subtitle "%{_c}%" to all players for 1 second 
+
+		else if arg-1 is "loot":
+			
+			if arg-2 is not set:
+				set slot 13 of {-i} to getLootbox()
+				open {-i} to sender
+			
+			else if arg-2 is "add":
+				set {_i} to player's held item
+				if {_i} is not set:
+					message "{@P} &7Ensure you are &6holding &7an item!"
+					stop 
+				set {_l::*} to lore of player's held item
+				set {_s} to item amount of player's held item 
+				if {_l::*} is set:
+					set {_item} to {_s} of {_i} with lore {_l::*}
+				else:
+					set {_item} to {_s} of {_i}
+				add {_item} to {Koth::Loot::*}
+				message "{@P} &7You have just added:" and "{@A} &6%{_item}% &7to the lootbox!"
+
+
+
+
+		else if arg-1 is "overview":
+			if {Koth::Region} is not set:
+				set {_r} to "Not Set"
+			else:
+				set {_r} to {Koth::Region}
+			if {Koth::Coords} is not set:
+				set {_c} to "Not Set"
+			else:
+				set {_c} to {Koth::Coords}
+
+			message "&8&m------------------------------------"
+			message "{@P} &7Overview of Koth config:" and ""
+			message "{@A} &7Koth Status: &6%{Koth::Status}%"
+			message "{@A} &7Koth Timer: &6%time format from {Koth::Timer}%"
+			message "{@A} &7Koth Region: &6%{_r}%"
+			message "{@A} &7Koth Coords: &6%{_c}%"
+			message formatted "{@A} &7Koth Lootbox Inventory: <run command:/koth loot>(Click Here)"
+			message "" and "&8&m------------------------------------"
+
+
+
+every real second:
+	if {Koth::Status} is "RUNNING":
+		add 1 second to {Koth::Uptime}
+		{Koth::Capper} is set
+		set {_cap} to ("%{Koth::Capper}%" parsed as player)
+		set {_reg} to "%region at {_cap}%"
+		set {_reg::*} to {_reg} split at " "
+		"%{_reg::1}%" is "%{Koth::Region}%"
+		if {Koth::CappingTime} > 1 seconds:
+			remove 1 second from {Koth::CappingTime}
+			send action bar "{@P} &7Capping Time: %time format from {Koth::CappingTime}% &7(&6%{Koth::Capper}%&7)" to all players
+			if {Koth::CappingTime} is 60, 120, 180, 240, 360, 420, 480, 540, 600, 660 seconds:
+				broadcast "{@P} &6%{Koth::Capper}% &7is capping &6Koth &7(%time format from {Koth::CappingTime}%&7)"
+		else:
+			send action bar "{@P} &6%{Koth::Capper}% &7capped Koth! " to all players
+			give ({_cap}) 1 of ender chest named "{@A} &6&lLoot Box {@AA}" with lore "%nl%&7Right click to open me!"
+			message "{@P} &7You have received &6a lootbox &7for capping KOTH!" to {_cap}
+			broadcast "&8&m------------------------------------" and " "
+			broadcast "{@P} &6%{Koth::Capper}% &7captured &6KOTH!" and "{@A} &7It took %time format from {Koth::Uptime}% &7to capture!"
+			broadcast "&8&m------------------------------------"
+			resetKoth(0)
+			if {@scoreboard} is true:
+				clear scoreboard of all players
+
+on inventory click:
+	if event-inventory is {-i}:
+		cancel event
+		if type of clicked slot is red stained glass pane:
+			close player's inventory 
+			message "{@P} &7Deleting &6%size of {Koth::Loot::*}% &7items..."
+			delete {Koth::Loot::*}
+			message "{@P} &7Reset &6lootbox inventory"
+		else if type of clicked slot is green stained glass pane:
+			close player's inventory
+			message "{@P} &7Do &6/koth loot add &7while holding an item to add it to the lootbox!"
+
+on right click:
+	if player's held item is an ender chest:
+		cancel event
+		set {_lore::*} to lore of player's held item 
+		"%{_lore::*}%" contains "Right click to open"
+		if {Koth::Loot::*} is not set:
+			message "{@P} &7The lootbox isn't configured, the &6loot &7hasn't been added!" and "{@A} &7Report this to a staff!"
+			cancel event
+			stop
+		remove 1 of player's held item from player's inventory 
+		message "{@P} &7Opening a &6lootbox..."
+		loop {Koth::Loot::*}:
+			drop loop-value at player without velocity
+		message "{@P} &7You have received:"
+		loop {Koth::Loot::*}:
+			message "{@A} &6%loop-value%"
+
+
+on quit:
+	{Koth::Status} is "RUNNING"
+	if contains({Koth::Capping::*}, "%player%") is true:
+		remove player from {Koth::Capping::*}
+	if {Koth::Capper} = "%player%":
+		set {Koth::Capper} to random element of {Koth::Capping::*}
+		broadcast "{@P} %{Koth::Capper}% &7is now capping &6Koth"
+
+on join:
+	{Koth::Status} is "RUNNING"
+	if contains({Koth::Capping::*}, "%player%") is true:
+		remove player from {Koth::Capping::*}
+	if {Koth::Capper} = "%player%":
+		set {Koth::Capper} to random element of {Koth::Capping::*}
+		broadcast "{@P} %{Koth::Capper}% &7is now capping &6Koth"
+
+
+on death:
+	{Koth::Status} is "RUNNING"
+	if contains({Koth::Capping::*}, "%victim%") is true:
+		remove victim from {Koth::Capping::*}
+
+	if {Koth::Capper} = "%victim%":
+		set {Koth::Capper} to random element of {Koth::Capping::*}
+		broadcast "{@P} %{Koth::Capper}% &7is now capping &6Koth"
+
+on region enter:
+	{Koth::Status} is "RUNNING"
+	set {_region} to "%region%"
+	set {_region::*} to {_region} split at " "
+	if "%{_region::1}%" is "%{Koth::Region}%":
+		if (size of {Koth::Capping::*}) != 0:
+			add player to {Koth::Capping::*}
+		else:
+			if (size of {Koth::Capping::*}) is 0:
+				add player to {Koth::Capping::*}
+				set {Koth::Capper} to player
+				broadcast "{@P} &6%player% &7has started to capture &6KOTH!"
+				set {Koth::CappingTime} to {Koth::Timer}
+
+on region exit:
+	{Koth::Status} is "RUNNING"
+	set {_region} to "%region%"
+	set {_region::*} to {_region} split at " "
+	if "%{_region::1}%" is "%{Koth::Region}%":
+		remove player from {Koth::Capping::*}
+		if (size of {Koth::Capping::*}) > 1:
+			set {_element} to first element of {Koth::Capping::*}
+			if {Koth::Capper} = "%player%":
+				broadcast "{@P} &6%player% &7has left &6KOTH!"
+				broadcast "{@A} &e%{_element}% &7is now capping! &7(%time format from {Koth::Timer}%&7) left to go!"
+				set {Koth::Capper} to "%{_element}%"
+				set {Koth::CappingTime} to {Koth::Timer}
+		else if (size of {Koth::Capping::*}) = 1:
+			if {Koth::Capper} != {Koth::Capping::*}:
+				broadcast "{@P} &6%player% &7has left &6KOTH!"
+				broadcast "{@A} &e%{Koth::Capping::*}% &7is now capping! &7(%time format from {Koth::Timer}%&7) left to go!"
+				set {Koth::Capper} to "%{Koth::Capping::*}%"
+				set {Koth::CappingTime} to {Koth::Timer}
+		else:
+			broadcast "{@P} &6%player% &7has left KOTH!"
+			broadcast "{@A} &7No one is capping now!"
+			send action bar "{@P} &6%player% &7left KOTH!" to all players
+			set {Koth::CappingTime} to {Koth::Timer}
+
+
+on tab complete of "/koth":
+	set tab completions to "syncregion", "loot", "stop", "start", "setlocation", "timer" and "overview"
+	if tab arg-1 = "syncregion":
+		set tab completions for position 2 to "(insert-worldguard-region-name)"
+	if tab arg-1 = "timer":
+		set tab completions for position 2 to "(insert-time-in-seconds)"
+
+
+every hour:
+	if {Koth::Status} is "NOT_RUNNING":
+		console command "/koth start"
+
+
+

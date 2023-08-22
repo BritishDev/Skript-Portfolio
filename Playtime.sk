@@ -1,0 +1,132 @@
+options:
+	P : &6Playtime &8|&7
+	A : &8»&r
+	AA : &8«&r
+
+import:
+	java.lang.System
+	java.lang.Object
+	java.lang.Enum
+	ch.njol.skript.Skript
+	org.bukkit.inventory.ItemFlag
+			
+expression (shiny|glowing|glow|enchanted|glinted) %itemstack%:
+	get:
+		expr-1.addItemFlags(ItemFlag.HIDE_ENCHANTS)
+		if expr-1 is not fishing rod:	
+			expr-1.addUnsafeEnchantment(LURE, 1)
+		if expr-1 is fishing rod:
+			expr-1.addUnsafeEnchantment(CHANNELING, 1)
+		return expr-1
+
+expression:
+	return type: text
+	patterns:
+		time format from %timespan%
+	get:
+		set {_time} to (expr-1.getTicks()/20)
+		set {_d} to rounded down ((({_time}/60)/60)/24)
+		remove {_d}*60*60*24 from {_time}
+		set {_h} to rounded down ((({_time}/60)/60))
+		remove {_h}*60*60 from {_time}
+		set {_m} to rounded down ((({_time}/60)))
+		remove {_m}*60 from {_time}
+		set {_s} to rounded down ((({_time})))
+		loop "d", "h", "m" and "s":
+			{_%loop-value%} is not 0:
+				add "&e%{_%loop-value%}%&7%loop-value%" to {_t::*}
+		return join {_t::*} by ""
+
+function setSlot(p: player, s: integer, n: integer, m: text, t: timespan):
+	set {_tt} to "%{_t}%" in strict proper case
+	if time played of {_p} > {_t}:
+		if {Playtime::%uuid of {_p}%::%{_tt}%} is not set:
+			set slot {_s} of metadata tag "playtime" of {_p} to glowing book named "&6Reward ##%{_n}%" with lore "", "&7Status: &6&lClick to claim" and ""
+		else:
+			set slot {_s} of metadata tag "playtime" of {_p} to glowing book named "&6Reward ##%{_n}%" with lore "", "&7Status: &a&lClaimed" and ""
+	else:
+		set {_l::1} to ""
+		set {_l::2} to "&7Status: &cNot achieved"
+		set {_l::3} to "&7Time Needed: &6%{_tt}%"
+		set {_l::4} to ""
+		set {_l::5} to "&7Reward: &6$%{_m}%"
+		set {_l::6} to ""
+		set {_l::7} to "&7Remaining: %time format from difference between time played of {_p} and {_t}% &6left"
+		set {_l::8} to ""
+		set slot {_s} of metadata tag "playtime" of {_p} to book named "&6Reward ##%{_n}%" with lore {_l::*}
+
+command /playtime:
+	trigger:
+		set metadata tag "playtime" of player to chest inventory with 3 rows named "&6Playtime &8| &7%sender%"
+		set slot (all integers between 0 and 27) of metadata tag "playtime" of player to orange stained glass pane
+		open metadata tag "playtime" of player to player
+		while "%name of player's current inventory%" is "&6Playtime &8| &7%sender%":
+			setSlot(player, 10, 1, "5,000", 1 hour)
+			setSlot(player, 11, 2, "10,000", 2 hour)
+			setSlot(player, 12, 3, "20,000", 3 hour)
+			set {_l::1} to ""
+			set {_l::2} to "&7Player: &6%sender%"
+			set {_l::3} to "&7Your playtime: %time format from time played of player%"
+			set {_l::4} to "&7First Login: &6%first login of player%"
+			set {_l::4} to ""
+			set slot 13 of metadata tag "playtime" of player to clock named "&6&nCurrent Playtime" with lore {_l::*}
+			setSlot(player, 14, 4, "40,000", 5 hour)
+			setSlot(player, 15, 5, "100,000", 10 hour)
+			setSlot(player, 16, 6, "150,000", 24 hour)
+			wait 1 tick
+
+function inventoryClick(p: player, n: integer, m: text, t: timespan):
+	set {_tt} to "%{_t}%" in strict proper case
+	if {Playtime::%uuid of {_p}%::%{_tt}%} is not set:
+		if time played of {_p} > {_t}:
+			set {Playtime::%uuid of {_p}%::%{_tt}%} to true 
+			add {_n} to balance of {_p} 
+			message "{@P} &7You have successfully &6redeemed &7the &6%{_tt}% &7playtime reward" and "{@A} &7Reward: &6$%{_m}%" to {_p}
+			{_p} command "/playtime"
+			if {_n} is 150000:
+				set {Playtime::%uuid of {_p}%::Hourly} to true
+				message "{@P} &7You will now &6receive $150,000 &7every 24 hours!" and "&7(Tip: Relog to allow for your 24 hourly playtime to start counting!)" to {_p}
+				wait 2 seconds 
+				message "{@P} &7You can now do &6/prestigeplaytime &7to see how long left till your next &6reward!" to {_p}
+
+		else:
+			message "{@P} &7You currently need %time format from difference between time played of {_p} and {_t}% &7to claim this" to {_p}
+	else:
+		message "{@P} &7You have &6already &7claimed this playtime reward" to {_p}
+
+on inventory click:
+	if (event-inventory = metadata tag "playtime" of player):
+		cancel event
+		if index of clicked slot is 10:
+			inventoryClick(player, 5000, "5,000", 1 hour)
+		else if index of clicked slot is 11:
+			inventoryClick(player, 10000, "10,000", 2 hour)
+		else if index of clicked slot is 12:
+			inventoryClick(player, 20000, "20,000", 3 hour)
+		else if index of clicked slot is 14:
+			inventoryClick(player, 40000, "40,000", 5 hour)
+		else if index of clicked slot is 15:
+			inventoryClick(player, 100000, "100,000", 10 hour)
+		else if index of clicked slot is 16:
+			inventoryClick(player, 150000, "150,000", 24 hour)
+on join:
+	if {Playtime::%uuid of player%::Hourly} is true:
+		while player is online:
+			add 1 second to {Playtime::%uuid of player%::Hourly::Timer}
+			wait 1 second 
+			if {Playtime::%uuid of player%::Hourly::Timer} >= 86400 seconds:
+				set {Playtime::%uuid of player%::Hourly::Timer} to 0 seconds 
+				message "{@P} &7You have received &6$150,000 &7for being online for another &624 hours"
+				add 150000 to balance of player
+
+				
+command /prestigeplaytime:
+	trigger:
+		if {Playtime::%uuid of player%::Hourly} is not set:
+			message "{@P} &7You have not claimed &6all &7of the playtime rewards in &6(/playtime)"
+			stop
+		if {Playtime::%uuid of player%::Hourly::Timer} is not set:
+			message "{@P} &7Please &6relog &7for your 24 hour prestige playtime timer to start working!"
+			stop
+		message "{@P} &7Time left until your &6$150,000 &7reward: %time format from difference between {Playtime::%uuid of sender%::Hourly::Timer} and 24 hours%"
+

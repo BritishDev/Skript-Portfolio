@@ -1,0 +1,24 @@
+options:
+	P : &6RTP &8| &7
+	min : 500
+	max : 25000
+
+
+
+command /rtp:
+	#cooldown: 30 seconds
+	#cooldown message: {@P} &7Please wait &6%remaining time% &7before using this again!
+	trigger:
+		set {_x} to a random integer between {@min} and {@max}
+		set {_z} to a random integer between {@min} and {@max}
+		set {_c} to location({_x}, 256, {_z}, world "survival")
+		message "{@P} Finding a safe place to teleport you to..."
+		while block at {_c} is air:
+			remove 1 from y-coordinate of {_c}
+		set {_b} to block at {_c}
+		set {_chunk} to chunk at {_c}
+		async load chunk at {_c} with ticket
+		wait 1 second
+		if chunk at {_c} is loaded:
+			message "{@P} Teleporting you to &6%{_x}%, %y-coord of {_c}%, %z-coord of {_c}%"
+			teleport sender to {_c}

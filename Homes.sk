@@ -1,0 +1,158 @@
+options:
+	P : &e&lHome &8»&7
+	A : &8»&r
+	AA : &8«&r
+
+
+command /sethomelimit [<offlineplayer>] [<integer>]:
+	permission: op 
+	trigger:
+		set {Homes::Limit::%uuid of arg-1%} to arg-2
+		message "{@P} &7You have set the limit of &e%arg-1% &7to &e%arg-2% homes"
+
+function synthesizePlayer(p: player):
+	if group of {_p} is "turtle":
+		set {Homes::Limit::%uuid of {_p}%} to 3
+	else if group of {_p} is "koala":
+		set {Homes::Limit::%uuid of {_p}%} to 5
+	else if group of {_p} is "penguin":
+		set {Homes::Limit::%uuid of {_p}%} to 10
+	else if {_p} has permission "panda":
+		set {Homes::Limit::%uuid of {_p}%} to 14
+	else:
+		set {Homes::Limit::%uuid of {_p}%} to 1
+
+command /home:
+	aliases: homes, homegui, sethome
+	trigger:
+		if combatLogIsTagged(player) is true:
+			message "&4You cant run this command in combat!"
+		else:
+			set {_panda} to placeholder "%%img_panda%%"
+			set {_penguin} to placeholder "%%img_penguin%%"
+			set {_koala} to placeholder "%%img_koala%%"
+			set {_turtle} to placeholder "%%img_turtle%%"
+			set {_member} to placeholder "%%img_member%%"
+			synthesizePlayer(sender)
+			wait 2 ticks
+			set metadata tag "homeGUI" of player to chest inventory with 6 rows named "&8Homes Gui"
+			set {_l::1} to "&fEach rank has a different"
+			set {_l::2} to "&famount of &ehomes&f."
+			set {_l::3} to ""
+			set {_l::4} to formatted "&6- &r&f%{_panda}%<##FFFFFF> | 10 Homes"
+			set {_l::5} to formatted "&6- &r&f%{_penguin}%<##e1e782> | 5 Homes"
+			set {_l::6} to formatted "&6- &r&f%{_koala}%<##928f89> | 3 Homes"
+			set {_l::7} to formatted "&6- &r&f%{_turtle}%<##718b5a> | 2 Homes"
+			set {_l::8} to formatted "&6- &r&f%{_member}%&f | 1 Home"
+			set {_l::9} to ""
+			set {_l::10} to "&fClick the &adye &fto set a home"
+			set {_l::11} to "&fClick the &4bed &fabove it to go there"
+			set slot 49 of metadata tag "homeGUI" of player to glowing spectral arrow named "&6&lINFORMATION" with lore {_l::*}
+			set {_s::*} to all integers between 10 and 16 and all integers between 28 and 34
+			set {_s1::*} to all integers between 19 and 25 and all integers between 37 and 43
+			if (size of {Homes::%uuid of sender%::*} < 1):
+				loop {_s::*}:
+					set slot loop-value of metadata tag "homeGUI" of player to white bed named "&a&lHOME" with lore "%nl%&7No home set!"
+				loop {_s1::*}:
+					set slot loop-value of metadata tag "homeGUI" of player to gray dye named "&7Click to add"
+			else:
+				set slot {_s::*} of metadata tag "homeGUI" of player to white bed named "&a&lHOME" with lore "%nl%&7No home set!"
+				set slot {_s1::*} of metadata tag "homeGUI" of player to gray dye named "&7Click to add"
+				loop {Homes::%uuid of sender%::*}:
+					set slot {_s::%loop-index%} of metadata tag "homeGUI" of player to red bed named "&a&lHOME %loop-index%" with lore "&7Click to teleport"
+					#%nl%&7Location: &e%x-coord of {Homes::%uuid of sender%::%loop-index%}%,%y-coord of {Homes::%uuid of sender%::%loop-index%}%,%z-coord of {Homes::%uuid of sender%::%loop-index%}%%nl%%nl%
+					set slot {_s::%loop-index%}+9 of metadata tag "homeGUI" of player to lime dye named "&cClick to delete"
+			open metadata tag "homeGUI" of player to player
+
+
+
+on inventory click:
+	if event-inventory = (metadata tag "homeGUI" of player):
+		cancel event
+		if type of clicked slot = gray dye:
+			if (size of {Homes::%uuid of player%::*}) < {Homes::Limit::%uuid of player%}:
+				add location of player to {Homes::%uuid of player%::*}
+				wait 1 tick
+				player command "/home"
+			else:
+				message "{@P} &eYour home limit has been reached!"
+		else if type of clicked slot = lime dye:
+			set {_s} to slot (index of clicked slot - 9) of player's current inventory
+			set {_s} to "%{_s}%"
+			replace all "red bed named &a&lHOME " in {_s} with ""
+			set {_n} to "%{_s}%" parsed as integer 
+			delete {Homes::%uuid of player%::%{_n}%}
+			message "{@P} &7You have deleted &a&lHome ##%{_n}%"
+			wait 1 tick
+			player command "/home"
+		else if type of clicked slot = red bed:
+			set {_s} to slot (index of clicked slot) of player's current inventory
+			set {_s} to "%{_s}%"
+			replace all "red bed named &a&lHome " in {_s} with ""
+			set {_n} to "%{_s}%" parsed as integer 
+			close player's inventory
+			set {_x} to x-coordinate of player
+			set {_y} to y-coordinate of player
+			set {_z} to z-coordinate of player
+			if "%{_x}%, %{_y}%, %{_z}%" is not "%x-loc of player%, %y-loc of player%, %z-loc of player%":
+				message "&4Teleport cancelled because you moved!"
+				send action bar "&4Teleport cancelled because you moved!" to player
+			else:
+				send action bar "&aTeleporting in 5 seconds. Do not move" to player
+				message "&aTeleporting in 5 seconds. Do not move"
+				play sound "minecraft:entity.enderman.teleport" at volume 1 at pitch 1 to player
+				wait 1 seconds
+				if "%{_x}%, %{_y}%, %{_z}%" is not "%x-loc of player%, %y-loc of player%, %z-loc of player%":
+					message "&4Teleport cancelled because you moved!"
+					send action bar "&4Teleport cancelled because you moved!" to player
+				else:
+					send action bar "&aTeleporting in 4 seconds. Do not move" to player
+					message "&aTeleporting in 4 seconds. Do not move"
+					play sound "minecraft:entity.enderman.teleport" at volume 1 at pitch 1 to player
+					wait 1 seconds
+					if "%{_x}%, %{_y}%, %{_z}%" is not "%x-loc of player%, %y-loc of player%, %z-loc of player%":
+						message "&4Teleport cancelled because you moved!"
+						send action bar "&4Teleport cancelled because you moved!" to player
+					else:
+						send action bar "&aTeleporting in 3 seconds. Do not move" to player
+						message "&aTeleporting in 3 seconds. Do not move"
+						play sound "minecraft:entity.enderman.teleport" at volume 1 at pitch 1 to player
+						wait 1 second
+						if "%{_x}%, %{_y}%, %{_z}%" is not "%x-loc of player%, %y-loc of player%, %z-loc of player%":
+							message "&4Teleport cancelled because you moved!"
+							send action bar "&4Teleport cancelled because you moved!" to player
+						else:
+							send action bar "&aTeleporting in 2 seconds. Do not move" to player
+							message "&aTeleporting in 2 seconds. Do not move"
+							play sound "minecraft:entity.enderman.teleport" at volume 1 at pitch 1 to player
+							wait 1 second
+							if "%{_x}%, %{_y}%, %{_z}%" is not "%x-loc of player%, %y-loc of player%, %z-loc of player%":
+								message "&4Teleport cancelled because you moved!"
+								send action bar "&4Teleport cancelled because you moved!" to player
+							else:
+								send action bar "&aTeleporting in 1 second. Do not move" to player
+								message "&aTeleporting in 1 second. Do not move"
+								play sound "minecraft:entity.enderman.teleport" at volume 1 at pitch 1 to player
+								wait 1 second
+								if "%{_x}%, %{_y}%, %{_z}%" is not "%x-loc of player%, %y-loc of player%, %z-loc of player%":
+									message "&4Teleport cancelled because you moved!"
+									send action bar "&4Teleport cancelled because you moved!" to player
+								else:
+									teleport player to {Homes::%uuid of player%::%{_n}%}
+									message "&aTeleported!"
+									send action bar "&aTeleported!" to player
+									play sound "minecraft:entity.player.levelup" at volume 1 at pitch 1 to player
+		else if type of clicked slot = arrow:
+			close player's inventory
+
+command /resethomes [<player>]:
+	permission: *
+	trigger:
+		delete {Homes::%uuid of arg-1%::*}
+		message "Deleted homes for %arg-1%"
+
+command /onetimehome [<player>]:
+	permission: *
+	trigger:
+		set {Homes::Onetime} to uuid of arg-1
+		broadcast uuid of arg-1

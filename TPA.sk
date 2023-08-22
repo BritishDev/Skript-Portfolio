@@ -1,0 +1,100 @@
+options:
+	P : &6&lTPA &8»&7
+	A : &8»&r
+	AA : &8«&r
+
+command /tpa [<player>]:
+	cooldown: 3 seconds 
+	cooldown message: {@P} &7You need to wait &6%remaining time% &7before using this again 
+	trigger:
+		if arg-1 is not set:
+			message "{@P} &7Please provide the IGN of an &6online &7player!"
+			stop
+		if {TPA::Disabled::%uuid of arg-1%} is true:
+			message "{@P} &7Sorry but &6%arg-1% &7has their TPA requests disabled"
+			stop
+		if {TPA::Requests::%uuid of arg-1%::*} contains uuid of sender:
+			message "{@P} &7You already have a &6pending &7request for &6%arg-1%"
+			stop
+		if arg-1 is not online:
+			message "{@P} &7Sorry but &6%arg-1% &7is not online."
+			stop
+		if arg-1 is player:
+			message "{@P} &7Sorry but you &6can't &7TPA to yourself."
+			stop
+		add uuid of sender to {TPA::Requests::%uuid of arg-1%::*}
+		message "{@P} &7You have sent a &6TPA &7request to &6%arg-1%" to sender 
+		message "{@P} &7You have received a &6TPA &7request from &6%sender%" to arg-1 
+		message "{@A} &7To &aaccept &7this, use &6/tpaccept %sender%" to arg-1 
+		message "{@A} &7To &cdeny &7this, use &6/tpdeny %sender%" to arg-1 
+		while {TPA::Requests::%uuid of arg-1%::*} contains uuid of sender:
+			add 1 to {_n}
+			wait 1 second 
+			if {_n} >= 30:
+				message "{@P} &7Your &6TPA &7request to &6%arg-1% &7has expired." to sender 
+				message "{@P} &7Your &6TPA &7request from &6%arg-1% &7has expired." to arg-1
+				remove uuid of sender from {TPA::Requests::%uuid of arg-1%::*}
+
+command /tpaccept [<player>]:
+	aliases: /tpahere
+	trigger:
+		if arg-1 is not set:
+			message "{@P} &7You need to provide the &6IGN &7of a player"
+			stop
+		if arg-1 is not online:
+			message "{@P} &7You need to provide the &6IGN &7of an &6online &7player."
+		if {TPA::Requests::%uuid of sender%::*} does not contain uuid of arg-1:
+			message "{@P} &7Sorry but &6%arg-1% &7does not have a &6TPA &7request for you."
+			stop
+		remove uuid of arg-1 from {TPA::Requests::%uuid of sender%::*}
+		message "{@P} &7You have &6accepted &7the &6TPA &7request from &6%arg-1%" to sender 
+		message "{@P} &7Your &6TPA &7request to &6%sender% &7has been &aaccepted" to arg-1 
+		loop reversed 5 times:
+			message "{@P} &7You will be teleporting to &6%sender% in &6%loop-number% &7seconds." to arg-1 
+			send action bar "{@P} &7Teleporting in &6%loop-number%&7s" to arg-1
+			play sound "BLOCK_NOTE_BLOCK_PLING" to arg-1
+			wait 1 second 
+		send action bar "{@P} &7Teleporting to &6%sender%" to arg-1 
+		play sound "BLOCK_NOTE_BLOCK_CHIME" to arg-1
+		teleport arg-1 to sender 
+		message "{@P} &7You have been teleported to &6%arg-1%" to arg-1 
+		message "{@P} &6%arg-1% &7has been teleported to &6you." to sender
+
+command /tpadeny [<player>]:
+	trigger: 
+		if arg-1 is not set:
+			message "{@P} &7You need to provide the &6IGN &7of a player"
+			stop
+		if arg-1 is not online:
+			message "{@P} &7You need to provide the &6IGN &7of an &6online &7player."
+		if {TPA::Requests::%uuid of sender%::*} does not contain uuid of arg-1:
+			message "{@P} &7Sorry but &6%arg-1% &7does not have a &6TPA &7request for you."
+			stop
+		remove uuid of arg-1 from {TPA::Requests::%uuid of sender%::*}
+		message "{@P} &7You have &cdenied &7the &6TPA &7request from &6%arg-1%" to sender 
+		message "{@P} &7Your request to &6TPA &7to &6%sender% &7has been &cdenied" to arg-1 
+
+
+command /tpatoggle:
+	trigger:
+		if {TPA::Disabled::%uuid of sender%} is not set:
+			set {TPA::Disabled::%uuid of sender%} to true 
+			message "{@P} &7You have &cdisabled &7anyone &6TPA'ing &7to you"
+		else if {TPA::Disabled::%uuid of sender%} is true:
+			delete {TPA::Disabled::%uuid of sender%}
+			message "{@P} &7You have &aenabled &7anyone &6TPA'ing &7to you"
+
+
+command /tpacancel [<player>]:
+	trigger:
+		if arg-1 is not set:
+			message "{@P} &7You need to provide the &6IGN &7of a player"
+			stop
+		if arg-1 is not online:
+			message "{@P} &7You need to provide the &6IGN &7of an &6online &7player."
+		if {TPA::Requests::%uuid of arg-1%::*} does not contain uuid of sender:
+			message "{@P} &7Sorry but &6%arg-1% &7does not have a &6TPA &7request from you."
+			stop
+		remove uuid of sender from {TPA::Requests::%uuid of arg-1%::*}
+		message "{@P} &7You have successfully &ccancelled &7your &6TPA request." to sender 
+
