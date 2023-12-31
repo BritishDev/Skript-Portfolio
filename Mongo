@@ -1,0 +1,36 @@
+function lb_sortAndCache(stat: string):
+	create new section with {_stat} stored in {_fetchSorted}:
+		set {_query} to new mongosk query
+		set mongo collection of {_query} to {-data::collection::players}
+		loop all mongo document from query {_query}:
+			mongo value {_stat} of loop-value is set
+			add loop-value to {_docs::*}
+		return {_docs::*}
+	run section {_fetchSorted} async with {_stat} and store result in {_docs::*} and wait
+	loop {_docs::*}:
+		set {_uuid} to mongo value "_id" of loop-value
+		set {_value} to mongo value {_stat} of loop-value
+		set {-nameCache::%{_uuid}%} to mongo value "username" of loop-value
+		set {-prefixCache::%{_uuid}%} to mongo value "prefix" of loop-value
+		set {_sort::%{_uuid}%} to {_value}
+	set {-lb::%{_stat}%::*} to sorted {_sort::*} from highest to lowest with format "@index^@value"
+
+# Sort Cache
+function lb_sortAndCacheAggregated(stat: string, stats: strings):
+	create new section with {_stat} stored in {_fetchSorted}:
+		set {_query} to new mongosk query
+		set mongo collection of {_query} to {-data::collection::players}
+		loop all mongo document from query {_query}:
+			add loop-value to {_docs::*}
+		return {_docs::*}
+	run section {_fetchSorted} async with {_stat} and store result in {_docs::*} and wait
+	loop {_docs::*}:
+		set {_uuid} to mongo value "_id" of loop-value
+		set {_value} to 0
+		loop {_stats::*}:
+			mongo value loop-value-2 of loop-value-1 is set
+			add mongo value loop-value-2 of loop-value-1 to {_value}
+		set {-nameCache::%{_uuid}%} to mongo value "username" of loop-value
+		set {-prefixCache::%{_uuid}%} to mongo value "prefix" of loop-value
+		set {_sort::%{_uuid}%} to {_value}
+	set {-lb::%{_stat}%::*} to sorted {_sort::*} from highest to lowest with format "@index^@value"
